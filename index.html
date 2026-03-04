@@ -520,16 +520,21 @@ function decide(action) {
 
   if (action === "skip") {
     // Just move forward without recording
+    if (currentIdx < filtered.length - 1) currentIdx++;
   } else {
     decisions[d.person_id] = action;
+    const prevLen = filtered.length;
+    applyFilters();
+    // If filter removed the decided item (e.g. "unreviewed" mode),
+    // the next item slid into currentIdx — don't advance.
+    // If item stayed (e.g. "all" mode), advance past it.
+    if (filtered.length === prevLen && currentIdx < filtered.length - 1) {
+      currentIdx++;
+    }
+    if (currentIdx >= filtered.length) currentIdx = Math.max(0, filtered.length - 1);
   }
 
   saveState();
-
-  // Auto-advance
-  if (currentIdx < filtered.length - 1) {
-    currentIdx++;
-  }
   render();
 }
 
