@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IOL-Wikidata QID Review</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f5;
+  --card-bg: #fff;
+  --border: #ddd;
+  --text: #333;
+  --muted: #777;
+  --high: #2e7d32;
+  --high-bg: #e8f5e9;
+  --medium: #f57f17;
+  --medium-bg: #fff8e1;
+  --accept: #2e7d32;
+  --reject: #c62828;
+  --skip: #757575;
+  --accent: #1565c0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Header */
+.header {
+  background: #1a237e;
+  color: #fff;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.header h1 { font-size: 18px; font-weight: 600; }
+.header-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+.header-stats span { opacity: 0.85; }
+.header-stats .count { font-weight: 700; opacity: 1; }
+
+/* Progress bar */
+.progress-container {
+  background: #e0e0e0;
+  height: 4px;
+  width: 100%;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accept), var(--accent));
+  transition: width 0.3s;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.controls label { font-size: 13px; color: var(--muted); }
+.controls select, .controls input {
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+}
+.controls .spacer { flex: 1; }
+.btn-export {
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--text);
+}
+.btn-export:hover { background: #f0f0f0; }
+
+/* Main card area */
+.main { padding: 16px 24px; max-width: 1200px; margin: 0 auto; }
+
+.card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+/* Two-column layout */
+.card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+}
+@media (max-width: 768px) {
+  .card-body { grid-template-columns: 1fr; }
+}
+
+.panel {
+  padding: 20px;
+}
+.panel-iol {
+  border-right: 1px solid var(--border);
+}
+.panel-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+}
+.panel-iol .panel-header { border-bottom-color: #1a237e; }
+.panel-wikidata .panel-header { border-bottom-color: #0277bd; }
+
+.field { margin-bottom: 10px; }
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+.field-value {
+  font-size: 14px;
+  margin-top: 1px;
+}
+.field-value.name {
+  font-size: 18px;
+  font-weight: 700;
+}
+.field-value a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.field-value a:hover { text-decoration: underline; }
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #e8eaf6;
+  color: #283593;
+}
+.tag.role { background: #fce4ec; color: #880e4f; }
+.tag.place { background: #e0f2f1; color: #004d40; }
+.tag.org { background: #fff3e0; color: #e65100; }
+
+.confidence-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+.confidence-badge.high { background: var(--high-bg); color: var(--high); }
+.confidence-badge.medium { background: var(--medium-bg); color: var(--medium); }
+
+.reasons {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Decision indicator on card */
+.card-decision {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.card-decision.accepted { background: #e8f5e9; color: var(--accept); }
+.card-decision.rejected { background: #ffebee; color: var(--reject); }
+
+/* Action bar */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+.action-btn {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  color: #fff;
+}
+.action-btn:active { transform: scale(0.97); }
+.action-btn.accept { background: var(--accept); }
+.action-btn.accept:hover { box-shadow: 0 2px 8px rgba(46,125,50,0.4); }
+.action-btn.reject { background: var(--reject); }
+.action-btn.reject:hover { box-shadow: 0 2px 8px rgba(198,40,40,0.4); }
+.action-btn.skip { background: var(--skip); }
+.action-btn.skip:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+.nav-btn {
+  font-size: 13px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--text);
+}
+.nav-btn:hover { background: #f0f0f0; }
+.nav-btn:disabled { opacity: 0.4; cursor: default; }
+
+.shortcuts {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 8px;
+}
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 11px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #f9f9f9;
+  font-family: monospace;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+.empty-state h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+
+/* Jump input */
+.jump-input {
+  width: 60px;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>IOL &ndash; Wikidata QID Review</h1>
+  <div class="header-stats">
+    <span>Total: <span class="count" id="stat-total">0</span></span>
+    <span style="color:#81c784">Accepted: <span class="count" id="stat-accepted">0</span></span>
+    <span style="color:#ef9a9a">Rejected: <span class="count" id="stat-rejected">0</span></span>
+    <span>Remaining: <span class="count" id="stat-remaining">0</span></span>
+  </div>
+</div>
+<div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
+
+<div class="controls">
+  <label>Filter:</label>
+  <select id="filter-status">
+    <option value="all">All</option>
+    <option value="unreviewed">Unreviewed</option>
+    <option value="accepted">Accepted</option>
+    <option value="rejected">Rejected</option>
+  </select>
+
+  <label>Confidence:</label>
+  <select id="filter-confidence">
+    <option value="all">All</option>
+    <option value="high">High only</option>
+    <option value="medium">Medium only</option>
+  </select>
+
+  <label>Sort:</label>
+  <select id="sort-by">
+    <option value="score-desc">Score (high first)</option>
+    <option value="score-asc">Score (low first)</option>
+    <option value="name-asc">Name (A-Z)</option>
+    <option value="confidence">Confidence</option>
+  </select>
+
+  <label>Go to:</label>
+  <input type="number" class="jump-input" id="jump-input" min="1" value="1">
+
+  <span class="spacer"></span>
+
+  <button class="btn-export" onclick="exportCSV()">Export CSV</button>
+  <button class="btn-export" onclick="exportJSON()">Export JSON</button>
+</div>
+
+<div class="main">
+  <div id="card-container"></div>
+
+  <div class="actions">
+    <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">&larr; Back</button>
+    <button class="action-btn reject" onclick="decide('rejected')">Reject (N)</button>
+    <button class="action-btn skip" onclick="decide('skip')">Skip (S)</button>
+    <button class="action-btn accept" onclick="decide('accepted')">Accept (Y)</button>
+    <button class="nav-btn" id="btn-next" onclick="navigate(1)">Next &rarr;</button>
+  </div>
+  <div class="shortcuts">
+    <kbd>Y</kbd> Accept &nbsp; <kbd>N</kbd> Reject &nbsp; <kbd>S</kbd> Skip &nbsp;
+    <kbd>&larr;</kbd> Back &nbsp; <kbd>&rarr;</kbd> Next &nbsp; <kbd>U</kbd> Undo
+  </div>
+</div>
+
+<script>
+// --- State ---
+let DATA = [];
+let filtered = [];
+let currentIdx = 0;
+let decisions = {}; // person_id -> "accepted" | "rejected"
+
+const STORAGE_KEY = "iol_wikidata_review_v1";
+
+// --- Init ---
+async function init() {
+  const resp = await fetch("review_data.json");
+  DATA = await resp.json();
+  loadState();
+  applyFilters();
+  render();
+}
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      decisions = parsed.decisions || {};
+      currentIdx = parsed.currentIdx || 0;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    decisions,
+    currentIdx,
+  }));
+}
+
+// --- Filtering / Sorting ---
+function applyFilters() {
+  const statusFilter = document.getElementById("filter-status").value;
+  const confFilter = document.getElementById("filter-confidence").value;
+  const sortBy = document.getElementById("sort-by").value;
+
+  filtered = DATA.filter(d => {
+    if (confFilter !== "all" && d.confidence !== confFilter) return false;
+    if (statusFilter === "unreviewed" && decisions[d.person_id]) return false;
+    if (statusFilter === "accepted" && decisions[d.person_id] !== "accepted") return false;
+    if (statusFilter === "rejected" && decisions[d.person_id] !== "rejected") return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    switch (sortBy) {
+      case "score-desc": return b.score - a.score;
+      case "score-asc": return a.score - b.score;
+      case "name-asc": return a.name.localeCompare(b.name);
+      case "confidence":
+        const order = { high: 0, medium: 1 };
+        return (order[a.confidence] ?? 2) - (order[b.confidence] ?? 2);
+      default: return 0;
+    }
+  });
+
+  if (currentIdx >= filtered.length) currentIdx = Math.max(0, filtered.length - 1);
+  document.getElementById("jump-input").max = filtered.length;
+  document.getElementById("jump-input").value = currentIdx + 1;
+}
+
+// --- Rendering ---
+function render() {
+  updateStats();
+  renderCard();
+  document.getElementById("btn-prev").disabled = currentIdx <= 0;
+  document.getElementById("btn-next").disabled = currentIdx >= filtered.length - 1;
+  document.getElementById("jump-input").value = currentIdx + 1;
+}
+
+function updateStats() {
+  const accepted = Object.values(decisions).filter(d => d === "accepted").length;
+  const rejected = Object.values(decisions).filter(d => d === "rejected").length;
+  const total = DATA.length;
+  const reviewed = accepted + rejected;
+
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-accepted").textContent = accepted;
+  document.getElementById("stat-rejected").textContent = rejected;
+  document.getElementById("stat-remaining").textContent = total - reviewed;
+
+  const pct = total > 0 ? (reviewed / total * 100) : 0;
+  document.getElementById("progress-bar").style.width = pct + "%";
+}
+
+function renderCard() {
+  const container = document.getElementById("card-container");
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><h2>No items match</h2><p>Adjust filters or start reviewing.</p></div>`;
+    return;
+  }
+
+  const d = filtered[currentIdx];
+  const wd = d.wikidata;
+  const dec = decisions[d.person_id];
+
+  let decisionBar = "";
+  if (dec) {
+    decisionBar = `<div class="card-decision ${dec}">${dec === "accepted" ? "Accepted" : "Rejected"}</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="card">
+      ${decisionBar}
+      <div class="card-body">
+        <div class="panel panel-iol">
+          <div class="panel-header">India Office List (1937)</div>
+          <div class="field">
+            <div class="field-label">Name</div>
+            <div class="field-value name">${esc(d.name)}</div>
+          </div>
+          ${field("Birth Date", d.birth_date)}
+          ${field("Service Entry", d.service_entry)}
+          ${field("Current Appointment", d.current_appointment)}
+          ${field("Service", d.service)}
+          ${field("Cohort", d.cohort)}
+          ${tagField("Education", d.education, "")}
+          ${tagField("Career Roles", d.roles, "role")}
+          ${tagField("Places Served", d.places, "place")}
+          ${tagField("Organizations", d.organizations, "org")}
+          ${tagField("Honours", d.honours, "")}
+          ${tagField("Qualifications", d.qualifications, "")}
+        </div>
+        <div class="panel panel-wikidata">
+          <div class="panel-header">Wikidata Match</div>
+          <div class="field">
+            <div class="field-label">Label</div>
+            <div class="field-value name">${esc(wd.label)}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">QID</div>
+            <div class="field-value"><a href="${esc(wd.url)}" target="_blank">${esc(wd.qid)}</a></div>
+          </div>
+          ${field("Description", wd.description)}
+          ${field("Birth Date", wd.birth_date)}
+          ${field("Death Date", wd.death_date)}
+          <div class="field">
+            <div class="field-label">Confidence</div>
+            <div class="field-value">
+              <span class="confidence-badge ${d.confidence}">${d.confidence}</span>
+              &nbsp; Score: <strong>${d.score}</strong>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Match Reasons</div>
+            <div class="reasons">${d.reasons.map(esc).join(", ")}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:13px;color:var(--muted);">
+      ${currentIdx + 1} / ${filtered.length}
+    </div>
+  `;
+}
+
+function field(label, value) {
+  if (!value) return "";
+  return `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(value)}</div></div>`;
+}
+
+function tagField(label, arr, cls) {
+  if (!arr || arr.length === 0) return "";
+  const tags = arr.map(v => `<span class="tag ${cls}">${esc(v)}</span>`).join("");
+  return `<div class="field"><div class="field-label">${esc(label)}</div><div class="tag-list">${tags}</div></div>`;
+}
+
+function esc(s) {
+  if (s == null) return "";
+  const el = document.createElement("span");
+  el.textContent = String(s);
+  return el.innerHTML;
+}
+
+// --- Actions ---
+function decide(action) {
+  if (filtered.length === 0) return;
+  const d = filtered[currentIdx];
+
+  if (action === "skip") {
+    // Just move forward without recording
+    if (currentIdx < filtered.length - 1) currentIdx++;
+  } else {
+    decisions[d.person_id] = action;
+    const prevLen = filtered.length;
+    applyFilters();
+    // If filter removed the decided item (e.g. "unreviewed" mode),
+    // the next item slid into currentIdx — don't advance.
+    // If item stayed (e.g. "all" mode), advance past it.
+    if (filtered.length === prevLen && currentIdx < filtered.length - 1) {
+      currentIdx++;
+    }
+    if (currentIdx >= filtered.length) currentIdx = Math.max(0, filtered.length - 1);
+  }
+
+  saveState();
+  render();
+}
+
+function navigate(delta) {
+  const next = currentIdx + delta;
+  if (next >= 0 && next < filtered.length) {
+    currentIdx = next;
+    saveState();
+    render();
+  }
+}
+
+function undo() {
+  if (filtered.length === 0) return;
+  // Go back one and clear decision
+  if (currentIdx > 0) currentIdx--;
+  const d = filtered[currentIdx];
+  delete decisions[d.person_id];
+  saveState();
+  render();
+}
+
+// --- Keyboard ---
+document.addEventListener("keydown", e => {
+  // Don't capture when typing in inputs
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+
+  switch (e.key.toLowerCase()) {
+    case "y": decide("accepted"); break;
+    case "n": decide("rejected"); break;
+    case "s": decide("skip"); break;
+    case "arrowright": navigate(1); break;
+    case "arrowleft": navigate(-1); break;
+    case "u": undo(); break;
+  }
+});
+
+// --- Filter change handlers ---
+document.getElementById("filter-status").addEventListener("change", () => { applyFilters(); render(); });
+document.getElementById("filter-confidence").addEventListener("change", () => { applyFilters(); render(); });
+document.getElementById("sort-by").addEventListener("change", () => { applyFilters(); render(); });
+document.getElementById("jump-input").addEventListener("change", e => {
+  const val = parseInt(e.target.value, 10);
+  if (val >= 1 && val <= filtered.length) {
+    currentIdx = val - 1;
+    saveState();
+    render();
+  }
+});
+
+// --- Export ---
+function exportCSV() {
+  const rows = [["person_id", "name", "qid", "confidence", "score", "decision"]];
+  for (const d of DATA) {
+    const dec = decisions[d.person_id] || "";
+    rows.push([d.person_id, d.name, d.wikidata.qid, d.confidence, d.score, dec]);
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  download(csv, "iol_wikidata_review.csv", "text/csv");
+}
+
+function exportJSON() {
+  const results = DATA.map(d => ({
+    person_id: d.person_id,
+    name: d.name,
+    qid: d.wikidata.qid,
+    confidence: d.confidence,
+    score: d.score,
+    decision: decisions[d.person_id] || null,
+  }));
+  download(JSON.stringify(results, null, 2), "iol_wikidata_review.json", "application/json");
+}
+
+function download(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// --- Start ---
+init();
+</script>
+</body>
+</html>
