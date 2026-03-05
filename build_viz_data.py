@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Build docs/data.json for the IOL Knowledge Graph GitHub Pages visualization.
 
-Extracts the Wikidata-grounded subgraph: all nodes with QIDs and edges between them.
+Includes all persons with at least one SERVED_IN/EDUCATED_AT/IN_COHORT edge,
+plus all Place, EducationInstitution, and ExamCohort nodes.
 
 Sources:
-  - knowledge_graph_final.json          (Place + EducationInstitution QIDs)
+  - knowledge_graph_final.json          (full KG with Place/Edu QIDs)
   - iol_wikidata_review.json            (718 accepted Person QIDs)
   - wikidata_batches/person_search_all.json  (Person Wikidata metadata)
 """
@@ -20,6 +21,9 @@ PERSON_REVIEW_PATH = "/mnt/c/Users/jic823/Dropbox/2026/iol_wikidata_review.json"
 PERSON_SEARCH_PATH = os.path.join(BASE_DIR, "wikidata_batches", "person_search_all.json")
 OUTPUT_PATH = os.path.join(BASE_DIR, "docs", "data.json")
 
+CONNECTING_EDGE_TYPES = {"SERVED_IN", "EDUCATED_AT", "IN_COHORT"}
+ALL_EDGE_TYPES = {"SERVED_IN", "EDUCATED_AT", "IN_COHORT", "MILITARY_SERVICE"}
+
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
@@ -28,13 +32,11 @@ def load_json(path):
 
 def build_person_qid_map(review_data, search_data):
     """Build person_id -> {qid, description, death_date, label} from review + search."""
-    # Index search results by person_id for metadata lookup
     search_by_id = {}
     for rec in search_data:
         if rec.get("match"):
             search_by_id[rec["person_id"]] = rec["match"]
 
-    # Only accepted entries from review
     person_qids = {}
     for rec in review_data:
         if rec.get("decision") != "accepted" or not rec.get("qid"):
@@ -63,102 +65,138 @@ def main():
     print("Loading person search metadata...")
     search_data = load_json(PERSON_SEARCH_PATH)
 
-    # Build person QID map
     person_qids = build_person_qid_map(review_data, search_data)
     print(f"  Accepted person QIDs: {len(person_qids)}")
 
-    # Index all nodes by id
+    # Index nodes by id and label
     node_by_id = {n["id"]: n for n in nodes_raw}
+    person_ids = {n["id"] for n in nodes_raw if n["label"] == "Person"}
 
-    # Collect all QID nodes
-    qid_nodes = {}
+    # Find connected persons: those with at least one SERVED_IN/EDUCATED_AT/IN_COHORT edge
+    connected_persons = set()
+    for rel in rels_raw:
+        if rel["type"] in CONNECTING_EDGE_TYPES and rel["source_id"] in person_ids:
+            connected_persons.add(rel["source_id"])
+    print(f"  Connected persons: {len(connected_persons)}")
+
+    # Build output nodes
+    out_nodes = {}
+
     for n in nodes_raw:
         nid = n["id"]
         label = n["label"]
 
-        if label == "Person" and nid in person_qids:
-            pq = person_qids[nid]
-            qid_nodes[nid] = {
-                "id": nid,
-                "label": label,
-                "name": n.get("name", ""),
-                "wikidata_qid": pq["qid"],
-                "wikidata_confidence": pq["confidence"],
-                "wikidata_label": pq["wikidata_label"],
-                "wikidata_description": pq["description"],
-                "birth_date": n.get("birth_date"),
-                "death_date": pq.get("death_date"),
-                "current_appointment": n.get("current_appointment"),
-            }
-        elif label in ("Place", "EducationInstitution") and n.get("wikidata_qid"):
+        if label == "Person" and nid in connected_persons:
             entry = {
                 "id": nid,
-                "label": label,
+                "label": "Person",
                 "name": n.get("name", ""),
-                "wikidata_qid": n["wikidata_qid"],
-                "wikidata_confidence": n.get("wikidata_confidence"),
-                "wikidata_label": n.get("wikidata_label"),
-                "alt_names": n.get("alt_names", []),
+                "birth_date": n.get("birth_date"),
+                "current_appointment": n.get("current_appointment"),
+                "has_qid": nid in person_qids,
             }
-            if label == "EducationInstitution":
-                entry["institution_type"] = n.get("institution_type")
-            qid_nodes[nid] = entry
+            if nid in person_qids:
+                pq = person_qids[nid]
+                entry["wikidata_qid"] = pq["qid"]
+                entry["wikidata_confidence"] = pq["confidence"]
+                entry["wikidata_label"] = pq["wikidata_label"]
+                entry["wikidata_description"] = pq["description"]
+                entry["death_date"] = pq.get("death_date")
+            out_nodes[nid] = entry
 
-    print(f"  Total QID nodes: {len(qid_nodes)}")
-    type_counts = Counter(n["label"] for n in qid_nodes.values())
+        elif label == "Place":
+            has_qid = bool(n.get("wikidata_qid"))
+            entry = {
+                "id": nid,
+                "label": "Place",
+                "name": n.get("name", ""),
+                "has_qid": has_qid,
+            }
+            if has_qid:
+                entry["wikidata_qid"] = n["wikidata_qid"]
+                entry["wikidata_confidence"] = n.get("wikidata_confidence")
+                entry["wikidata_label"] = n.get("wikidata_label")
+                entry["alt_names"] = n.get("alt_names", [])
+            out_nodes[nid] = entry
+
+        elif label == "EducationInstitution":
+            has_qid = bool(n.get("wikidata_qid"))
+            entry = {
+                "id": nid,
+                "label": "EducationInstitution",
+                "name": n.get("name", ""),
+                "has_qid": has_qid,
+                "institution_type": n.get("institution_type"),
+            }
+            if has_qid:
+                entry["wikidata_qid"] = n["wikidata_qid"]
+                entry["wikidata_confidence"] = n.get("wikidata_confidence")
+                entry["wikidata_label"] = n.get("wikidata_label")
+                entry["alt_names"] = n.get("alt_names", [])
+            out_nodes[nid] = entry
+
+        elif label == "ExamCohort":
+            out_nodes[nid] = {
+                "id": nid,
+                "label": "ExamCohort",
+                "name": n.get("name", ""),
+                "year": int(n["year"]) if n.get("year") else None,
+                "service": n.get("service", ""),
+                "has_qid": False,
+            }
+
+    type_counts = Counter(n["label"] for n in out_nodes.values())
+    print(f"  Total nodes: {len(out_nodes)}")
     for t, c in sorted(type_counts.items()):
         print(f"    {t}: {c}")
 
-    # Collect edges between QID nodes
-    qid_ids = set(qid_nodes.keys())
+    # Collect edges between included nodes
+    included_ids = set(out_nodes.keys())
     edges = []
     edge_type_counts = Counter()
     for rel in rels_raw:
-        src = rel["source_id"]
-        tgt = rel["target_id"]
-        if src in qid_ids and tgt in qid_ids:
-            edges.append({
-                "source": src,
-                "target": tgt,
-                "type": rel["type"],
-            })
+        if rel["type"] not in ALL_EDGE_TYPES:
+            continue
+        src, tgt = rel["source_id"], rel["target_id"]
+        if src in included_ids and tgt in included_ids:
+            edges.append({"source": src, "target": tgt, "type": rel["type"]})
             edge_type_counts[rel["type"]] += 1
 
-    print(f"  Edges between QID nodes: {len(edges)}")
+    print(f"  Total edges: {len(edges)}")
     for t, c in sorted(edge_type_counts.items()):
         print(f"    {t}: {c}")
 
-    # Compute degree for each QID node
+    # Compute degree
     degree = Counter()
     for e in edges:
         degree[e["source"]] += 1
         degree[e["target"]] += 1
-    for nid in qid_nodes:
-        qid_nodes[nid]["degree"] = degree.get(nid, 0)
+    for nid in out_nodes:
+        out_nodes[nid]["degree"] = degree.get(nid, 0)
 
-    # Top places by connected QID person count
+    # Top places by person count
     place_person_count = defaultdict(int)
     for e in edges:
         if e["type"] == "SERVED_IN":
-            tgt_node = qid_nodes.get(e["target"])
-            if tgt_node and tgt_node["label"] == "Place":
+            tgt = out_nodes.get(e["target"])
+            if tgt and tgt["label"] == "Place":
                 place_person_count[e["target"]] += 1
     top_places = sorted(place_person_count.items(), key=lambda x: -x[1])[:20]
-    top_places = [{"id": pid, "name": qid_nodes[pid]["name"], "count": c} for pid, c in top_places]
+    top_places = [{"id": pid, "name": out_nodes[pid]["name"], "count": c} for pid, c in top_places]
 
-    # Top institutions by connected QID person count
+    # Top institutions by person count
     edu_person_count = defaultdict(int)
     for e in edges:
         if e["type"] == "EDUCATED_AT":
-            tgt_node = qid_nodes.get(e["target"])
-            if tgt_node and tgt_node["label"] == "EducationInstitution":
+            tgt = out_nodes.get(e["target"])
+            if tgt and tgt["label"] == "EducationInstitution":
                 edu_person_count[e["target"]] += 1
     top_institutions = sorted(edu_person_count.items(), key=lambda x: -x[1])[:20]
-    top_institutions = [{"id": eid, "name": qid_nodes[eid]["name"], "count": c} for eid, c in top_institutions]
+    top_institutions = [{"id": eid, "name": out_nodes[eid]["name"], "count": c} for eid, c in top_institutions]
 
-    # Timeline: birth decade distribution of QID persons
+    # Timeline: birth decade distribution of ALL included persons
     decade_counts = Counter()
-    for n in qid_nodes.values():
+    for n in out_nodes.values():
         if n["label"] == "Person" and n.get("birth_date"):
             try:
                 year = int(n["birth_date"][:4])
@@ -168,17 +206,26 @@ def main():
                 pass
     timeline = [{"decade": d, "count": c} for d, c in sorted(decade_counts.items())]
 
-    # Build output
+    # QID counts for stats
+    qid_persons = sum(1 for n in out_nodes.values() if n["label"] == "Person" and n.get("has_qid"))
+    qid_places = sum(1 for n in out_nodes.values() if n["label"] == "Place" and n.get("has_qid"))
+    qid_edu = sum(1 for n in out_nodes.values() if n["label"] == "EducationInstitution" and n.get("has_qid"))
+
     output = {
         "stats": {
             "total_kg_nodes": len(nodes_raw),
             "total_kg_edges": len(rels_raw),
-            "qid_nodes": len(qid_nodes),
-            "qid_edges": len(edges),
+            "viz_nodes": len(out_nodes),
+            "viz_edges": len(edges),
             "nodes_by_type": dict(type_counts),
             "edges_by_type": dict(edge_type_counts),
+            "qid_counts": {
+                "Person": qid_persons,
+                "Place": qid_places,
+                "EducationInstitution": qid_edu,
+            },
         },
-        "nodes": list(qid_nodes.values()),
+        "nodes": list(out_nodes.values()),
         "edges": edges,
         "top_places": top_places,
         "top_institutions": top_institutions,
@@ -191,6 +238,7 @@ def main():
 
     print(f"\nWrote {OUTPUT_PATH}")
     print(f"  {len(output['nodes'])} nodes, {len(output['edges'])} edges")
+    print(f"  QID: {qid_persons} persons, {qid_places} places, {qid_edu} edu")
     print(f"  File size: {os.path.getsize(OUTPUT_PATH) / 1024:.0f} KB")
 
 

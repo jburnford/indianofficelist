@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>India Office List 1937 &mdash; Wikidata-Grounded Knowledge Graph</title>
+<title>India Office List 1937 &mdash; Knowledge Graph</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 :root {
   --person: #4a90d9;
+  --person-muted: #8bb8e8;
   --place: #5cb85c;
+  --place-muted: #a3d9a3;
   --edu: #f0ad4e;
-  --served: #5cb85c;
-  --educated: #f0ad4e;
-  --military: #999;
+  --edu-muted: #f5cc8a;
+  --cohort: #e74c3c;
   --bg: #f8f9fa;
   --card: #fff;
   --border: #dee2e6;
@@ -23,42 +24,40 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
 a { color: var(--person); }
 
-/* Header */
-header { background: #2c3e50; color: #fff; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+header { background: #2c3e50; color: #fff; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
 header h1 { font-size: 18px; font-weight: 600; }
 header .subtitle { font-size: 13px; color: #bdc3c7; }
-.stats-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
-.stat-pill { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.15); }
+.stats-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.stat-pill { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.12); }
 .stat-pill.person { border: 2px solid var(--person); }
 .stat-pill.place { border: 2px solid var(--place); }
 .stat-pill.edu { border: 2px solid var(--edu); }
+.stat-pill.cohort { border: 2px solid var(--cohort); }
 .stat-pill.total { border: 2px solid #fff; }
 
-/* Layout */
-.container { display: flex; height: calc(100vh - 64px); }
+.container { display: flex; height: calc(100vh - 56px); }
 .graph-panel { flex: 1; position: relative; overflow: hidden; background: var(--card); }
+.graph-panel canvas { display: block; }
 .sidebar { width: 340px; border-left: 1px solid var(--border); overflow-y: auto; background: var(--card); display: flex; flex-direction: column; }
-.sidebar.collapsed { width: 0; border: none; }
 
-/* Controls */
-.controls { position: absolute; top: 12px; left: 12px; z-index: 10; display: flex; flex-direction: column; gap: 8px; }
+.controls { position: absolute; top: 12px; left: 12px; z-index: 10; display: flex; flex-direction: column; gap: 6px; }
 .control-group { background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 .control-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 2px 0; }
-.control-group input[type=checkbox] { accent-color: var(--person); }
+.cg-title { font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
 #search-box { width: 220px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
 #search-box:focus { border-color: var(--person); }
 #search-results { max-height: 160px; overflow-y: auto; }
 .search-result { padding: 4px 6px; cursor: pointer; font-size: 12px; border-radius: 4px; }
 .search-result:hover { background: #e9ecef; }
 
-/* Sidebar detail */
 .detail-placeholder { padding: 24px; color: var(--muted); text-align: center; font-size: 13px; flex: 1; display: flex; align-items: center; justify-content: center; }
 .detail-content { padding: 16px; }
 .detail-content h2 { font-size: 16px; margin-bottom: 4px; word-break: break-word; }
-.detail-content .type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+.type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; margin-bottom: 8px; }
 .type-badge.Person { background: var(--person); }
 .type-badge.Place { background: var(--place); }
 .type-badge.EducationInstitution { background: var(--edu); }
+.type-badge.ExamCohort { background: var(--cohort); }
 .detail-content .qid-link { font-size: 13px; margin-bottom: 12px; }
 .detail-content dl { font-size: 13px; }
 .detail-content dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
@@ -70,35 +69,25 @@ header .subtitle { font-size: 13px; color: #bdc3c7; }
 .conn-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .conn-type { color: var(--muted); font-size: 10px; flex-shrink: 0; }
 
-/* Bottom panels */
 .bottom-panels { border-top: 1px solid var(--border); background: var(--card); overflow-x: auto; }
 .bottom-inner { display: flex; gap: 0; min-width: 900px; }
 .bottom-section { flex: 1; padding: 16px 20px; border-right: 1px solid var(--border); }
 .bottom-section:last-child { border-right: none; }
 .bottom-section h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-.rank-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 12px; cursor: pointer; }
+.rank-item { display: flex; align-items: center; padding: 3px 0; font-size: 12px; cursor: pointer; }
 .rank-item:hover { color: var(--person); }
 .rank-num { color: var(--muted); width: 20px; flex-shrink: 0; }
 .rank-bar { height: 4px; border-radius: 2px; margin-left: 8px; }
 .timeline-chart { height: 120px; }
 
-/* SVG */
-svg { display: block; }
-.link { stroke-opacity: 0.3; }
-.link:hover { stroke-opacity: 0.8; }
-.node circle { stroke: #fff; stroke-width: 1.5; cursor: pointer; }
-.node circle.highlighted { stroke: #e74c3c; stroke-width: 3; }
-.node text { font-size: 9px; pointer-events: none; fill: var(--text); }
-
-/* Tooltip */
-.tooltip { position: absolute; background: rgba(0,0,0,0.85); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 100; max-width: 280px; }
+.tooltip { position: absolute; background: rgba(0,0,0,0.85); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 100; max-width: 280px; white-space: nowrap; }
 </style>
 </head>
 <body>
 <header>
   <div>
     <h1>India Office List 1937 &mdash; Knowledge Graph</h1>
-    <div class="subtitle">Wikidata-grounded subgraph of British India civil service biographies</div>
+    <div class="subtitle">5,340 officials with ICS exam cohort timeline (1869&ndash;1935)</div>
   </div>
   <div class="stats-bar" id="stats-bar"></div>
 </header>
@@ -111,16 +100,18 @@ svg { display: block; }
         <div id="search-results"></div>
       </div>
       <div class="control-group">
-        <strong style="font-size:11px;text-transform:uppercase;color:var(--muted)">Node Types</strong>
-        <label><input type="checkbox" checked data-node-type="Person"> <span style="color:var(--person)">&#9679;</span> Persons (<span id="count-person">0</span>)</label>
-        <label><input type="checkbox" checked data-node-type="Place"> <span style="color:var(--place)">&#9679;</span> Places (<span id="count-place">0</span>)</label>
-        <label><input type="checkbox" checked data-node-type="EducationInstitution"> <span style="color:var(--edu)">&#9679;</span> Institutions (<span id="count-edu">0</span>)</label>
+        <div class="cg-title">Node Types</div>
+        <label><input type="checkbox" checked data-node-type="Person"> <span style="color:var(--person)">&#9679;</span> Persons (<span id="cnt-person">0</span>)</label>
+        <label><input type="checkbox" checked data-node-type="Place"> <span style="color:var(--place)">&#9679;</span> Places (<span id="cnt-place">0</span>)</label>
+        <label><input type="checkbox" checked data-node-type="EducationInstitution"> <span style="color:var(--edu)">&#9679;</span> Institutions (<span id="cnt-edu">0</span>)</label>
+        <label><input type="checkbox" checked data-node-type="ExamCohort"> <span style="color:var(--cohort)">&#9670;</span> Cohorts (<span id="cnt-cohort">0</span>)</label>
       </div>
       <div class="control-group">
-        <strong style="font-size:11px;text-transform:uppercase;color:var(--muted)">Edge Types</strong>
-        <label><input type="checkbox" checked data-edge-type="SERVED_IN"> <span style="color:var(--served)">&mdash;</span> Served In</label>
-        <label><input type="checkbox" checked data-edge-type="EDUCATED_AT"> <span style="color:var(--educated)">&mdash;</span> Educated At</label>
-        <label><input type="checkbox" checked data-edge-type="MILITARY_SERVICE"> <span style="color:var(--military)">&mdash;</span> Military Service</label>
+        <div class="cg-title">Edge Types</div>
+        <label><input type="checkbox" checked data-edge-type="SERVED_IN"> <span style="color:var(--place)">&mdash;</span> Served In</label>
+        <label><input type="checkbox" checked data-edge-type="EDUCATED_AT"> <span style="color:var(--edu)">&mdash;</span> Educated At</label>
+        <label><input type="checkbox" checked data-edge-type="IN_COHORT"> <span style="color:var(--cohort)">&mdash;</span> In Cohort</label>
+        <label><input type="checkbox" data-edge-type="MILITARY_SERVICE"> <span style="color:#999">&mdash;</span> Military Service</label>
       </div>
     </div>
     <div class="tooltip" id="tooltip" style="display:none"></div>
@@ -134,31 +125,41 @@ svg { display: block; }
 <div class="bottom-panels">
   <div class="bottom-inner">
     <div class="bottom-section">
-      <h3>Birth Decade Distribution (718 QID Persons)</h3>
+      <h3>Birth Decade Distribution</h3>
       <div class="timeline-chart" id="timeline-chart"></div>
     </div>
     <div class="bottom-section">
-      <h3>Top 15 Places (by QID person connections)</h3>
+      <h3>Top 15 Places</h3>
       <div id="top-places"></div>
     </div>
     <div class="bottom-section">
-      <h3>Top 15 Institutions (by QID person connections)</h3>
+      <h3>Top 15 Institutions</h3>
       <div id="top-institutions"></div>
     </div>
   </div>
 </div>
 
 <script>
-const COLORS = { Person: '#4a90d9', Place: '#5cb85c', EducationInstitution: '#f0ad4e' };
-const EDGE_COLORS = { SERVED_IN: '#5cb85c', EDUCATED_AT: '#f0ad4e', MILITARY_SERVICE: '#999' };
+const FILL = {
+  Person:               '#4a90d9',
+  Person_muted:         '#8bb8e8',
+  Place:                '#5cb85c',
+  Place_muted:          '#a3d9a3',
+  EducationInstitution: '#f0ad4e',
+  EducationInstitution_muted: '#f5cc8a',
+  ExamCohort:           '#e74c3c',
+};
+const EDGE_COLOR = { SERVED_IN: '#5cb85c', EDUCATED_AT: '#f0ad4e', IN_COHORT: '#e74c3c', MILITARY_SERVICE: '#999' };
+const BADGE_LABEL = { Person: 'Person', Place: 'Place', EducationInstitution: 'Education', ExamCohort: 'ICS Cohort' };
 
-let DATA, simulation, svg, g, linkG, nodeG;
-let nodeElements, linkElements;
-let activeNodeTypes = new Set(['Person', 'Place', 'EducationInstitution']);
-let activeEdgeTypes = new Set(['SERVED_IN', 'EDUCATED_AT', 'MILITARY_SERVICE']);
-let selectedNodeId = null;
+let DATA, simulation, canvas, ctx, transform;
+let nodes, links, nodeById;
+let quadtree;
+let hoveredNode = null, selectedNode = null, dragNode = null;
+let activeNodeTypes = new Set(['Person', 'Place', 'EducationInstitution', 'ExamCohort']);
+let activeEdgeTypes = new Set(['SERVED_IN', 'EDUCATED_AT', 'IN_COHORT']);
+let W, H, dpr;
 
-// Load data and initialize
 d3.json('data.json').then(data => {
   DATA = data;
   initStats();
@@ -169,99 +170,112 @@ d3.json('data.json').then(data => {
 
 function initStats() {
   const s = DATA.stats;
-  const bar = document.getElementById('stats-bar');
-  bar.innerHTML = `
-    <span class="stat-pill total">Full KG: ${s.total_kg_nodes.toLocaleString()} nodes / ${s.total_kg_edges.toLocaleString()} edges</span>
-    <span class="stat-pill person">${s.nodes_by_type.Person} Persons</span>
-    <span class="stat-pill place">${s.nodes_by_type.Place} Places</span>
-    <span class="stat-pill edu">${s.nodes_by_type.EducationInstitution} Institutions</span>
-    <span class="stat-pill total">${s.qid_edges.toLocaleString()} edges</span>
+  const q = s.qid_counts;
+  document.getElementById('stats-bar').innerHTML = `
+    <span class="stat-pill total">Full KG: ${s.total_kg_nodes.toLocaleString()} nodes</span>
+    <span class="stat-pill person">${s.nodes_by_type.Person.toLocaleString()} Persons (${q.Person} QID)</span>
+    <span class="stat-pill place">${s.nodes_by_type.Place} Places (${q.Place} QID)</span>
+    <span class="stat-pill edu">${s.nodes_by_type.EducationInstitution} Edu (${q.EducationInstitution} QID)</span>
+    <span class="stat-pill cohort">${s.nodes_by_type.ExamCohort} Cohorts</span>
+    <span class="stat-pill total">${s.viz_edges.toLocaleString()} edges</span>
   `;
-  document.getElementById('count-person').textContent = s.nodes_by_type.Person;
-  document.getElementById('count-place').textContent = s.nodes_by_type.Place;
-  document.getElementById('count-edu').textContent = s.nodes_by_type.EducationInstitution;
+  document.getElementById('cnt-person').textContent = s.nodes_by_type.Person;
+  document.getElementById('cnt-place').textContent = s.nodes_by_type.Place;
+  document.getElementById('cnt-edu').textContent = s.nodes_by_type.EducationInstitution;
+  document.getElementById('cnt-cohort').textContent = s.nodes_by_type.ExamCohort;
 }
 
+/* ---------- GRAPH ---------- */
 function initGraph() {
   const panel = document.getElementById('graph-panel');
-  const W = panel.clientWidth;
-  const H = panel.clientHeight;
+  W = panel.clientWidth;
+  H = panel.clientHeight;
+  dpr = window.devicePixelRatio || 1;
 
-  // Build node/link index
-  const nodeMap = new Map();
-  DATA.nodes.forEach(n => nodeMap.set(n.id, { ...n }));
+  canvas = document.createElement('canvas');
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  panel.appendChild(canvas);
+  ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
 
-  const nodes = Array.from(nodeMap.values());
-  const links = DATA.edges.map(e => ({ source: e.source, target: e.target, type: e.type }));
+  transform = d3.zoomIdentity;
 
-  // Degree-based sizing
+  // Build nodes & links
+  nodeById = new Map();
+  DATA.nodes.forEach(n => nodeById.set(n.id, { ...n }));
+  nodes = Array.from(nodeById.values());
+  links = DATA.edges.map(e => ({ source: e.source, target: e.target, type: e.type }));
+
+  // Precompute adjacency for sidebar
+  window._adj = new Map();
+  DATA.edges.forEach(e => {
+    if (!window._adj.has(e.source)) window._adj.set(e.source, []);
+    if (!window._adj.has(e.target)) window._adj.set(e.target, []);
+    window._adj.get(e.source).push({ target: e.target, type: e.type });
+    window._adj.get(e.target).push({ target: e.source, type: e.type });
+  });
+
+  // Radius scale
   const maxDeg = d3.max(nodes, d => d.degree) || 1;
-  const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([3, 18]);
+  window._rScale = d3.scaleSqrt().domain([0, maxDeg]).range([1.5, 16]);
 
-  svg = d3.select('#graph-panel').append('svg').attr('width', W).attr('height', H);
-  g = svg.append('g');
+  // Cohort temporal scale
+  const cohortNodes = nodes.filter(n => n.label === 'ExamCohort' && n.year);
+  const yearMin = d3.min(cohortNodes, d => d.year);
+  const yearMax = d3.max(cohortNodes, d => d.year);
+  const PAD = 150;
+  window._xTime = d3.scaleLinear().domain([yearMin, yearMax]).range([PAD, W - PAD]);
+  const cohortY = H / 2;
+  window._cohortY = cohortY;
+  window._yearMin = yearMin;
+  window._yearMax = yearMax;
 
-  // Zoom
-  const zoom = d3.zoom().scaleExtent([0.2, 8]).on('zoom', e => g.attr('transform', e.transform));
-  svg.call(zoom);
-
-  linkG = g.append('g');
-  nodeG = g.append('g');
-
-  linkElements = linkG.selectAll('line').data(links).enter().append('line')
-    .attr('class', 'link')
-    .attr('stroke', d => EDGE_COLORS[d.type] || '#ccc')
-    .attr('stroke-width', 1);
-
-  const nodeGroups = nodeG.selectAll('g').data(nodes).enter().append('g').attr('class', 'node');
-
-  nodeGroups.append('circle')
-    .attr('r', d => rScale(d.degree))
-    .attr('fill', d => COLORS[d.label])
-    .on('click', (e, d) => selectNode(d))
-    .on('mouseenter', (e, d) => showTooltip(e, d))
-    .on('mouseleave', hideTooltip);
-
-  // Labels for high-degree nodes
-  nodeGroups.filter(d => d.degree >= 10).append('text')
-    .attr('dx', d => rScale(d.degree) + 3)
-    .attr('dy', 3)
-    .text(d => d.name.length > 25 ? d.name.slice(0, 23) + '...' : d.name);
-
-  nodeElements = nodeGroups;
+  cohortNodes.forEach(n => { n.fx = window._xTime(n.year); n.fy = cohortY; });
 
   // Force simulation
   simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(40).strength(0.3))
-    .force('charge', d3.forceManyBody().strength(-30).distanceMax(300))
-    .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide().radius(d => rScale(d.degree) + 2))
-    .on('tick', () => {
-      linkElements.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-      nodeGroups.attr('transform', d => `translate(${d.x},${d.y})`);
-    });
+    .force('link', d3.forceLink(links).id(d => d.id)
+      .distance(d => d.type === 'IN_COHORT' ? 25 : 45)
+      .strength(d => d.type === 'IN_COHORT' ? 0.5 : 0.15))
+    .force('charge', d3.forceManyBody().strength(-8).distanceMax(200))
+    .force('center', d3.forceCenter(W / 2, H / 2).strength(0.02))
+    .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 1).iterations(1))
+    .force('ySpread', d3.forceY().y(d => {
+      if (d.label === 'ExamCohort') return cohortY;
+      return d.id.charCodeAt(d.id.length - 1) % 2 === 0 ? cohortY - 120 : cohortY + 120;
+    }).strength(d => d.label === 'ExamCohort' ? 0 : 0.015))
+    .alphaDecay(0.02)
+    .on('tick', onTick);
 
-  // Drag
-  const drag = d3.drag()
-    .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.1).restart(); d.fx = d.x; d.fy = d.y; })
-    .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
-    .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; });
-  nodeGroups.call(drag);
+  // Zoom
+  const zoomBehavior = d3.zoom().scaleExtent([0.1, 10])
+    .filter(e => !dragNode)
+    .on('zoom', e => { transform = e.transform; draw(); });
+  d3.select(canvas).call(zoomBehavior);
+  window._zoom = zoomBehavior;
 
-  // Filter controls
+  // Mouse interaction
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('click', onCanvasClick);
+
+  // Filters
   document.querySelectorAll('[data-node-type]').forEach(cb => {
     cb.addEventListener('change', () => {
       if (cb.checked) activeNodeTypes.add(cb.dataset.nodeType);
       else activeNodeTypes.delete(cb.dataset.nodeType);
-      applyFilters();
+      draw();
     });
   });
   document.querySelectorAll('[data-edge-type]').forEach(cb => {
     cb.addEventListener('change', () => {
       if (cb.checked) activeEdgeTypes.add(cb.dataset.edgeType);
       else activeEdgeTypes.delete(cb.dataset.edgeType);
-      applyFilters();
+      draw();
     });
   });
 
@@ -272,7 +286,7 @@ function initGraph() {
     const q = searchBox.value.toLowerCase().trim();
     searchResults.innerHTML = '';
     if (q.length < 2) return;
-    const matches = nodes.filter(n => n.name.toLowerCase().includes(q)).slice(0, 10);
+    const matches = nodes.filter(n => n.name.toLowerCase().includes(q)).slice(0, 12);
     matches.forEach(n => {
       const div = document.createElement('div');
       div.className = 'search-result';
@@ -281,101 +295,265 @@ function initGraph() {
         searchResults.innerHTML = '';
         searchBox.value = n.name;
         selectNode(n);
-        panToNode(n, zoom);
+        panToNode(n);
       });
       searchResults.appendChild(div);
     });
   });
-
-  // Store refs for filtering
-  window._graphState = { nodes, links, nodeGroups, linkElements, rScale, zoom, nodeMap };
 }
 
-function applyFilters() {
-  const { nodes, links, nodeGroups, linkElements } = window._graphState;
-  const visibleIds = new Set(nodes.filter(n => activeNodeTypes.has(n.label)).map(n => n.id));
-
-  nodeGroups.style('display', d => visibleIds.has(d.id) ? null : 'none');
-  linkElements.style('display', d => {
-    const srcId = typeof d.source === 'object' ? d.source.id : d.source;
-    const tgtId = typeof d.target === 'object' ? d.target.id : d.target;
-    return activeEdgeTypes.has(d.type) && visibleIds.has(srcId) && visibleIds.has(tgtId) ? null : 'none';
-  });
+function nodeRadius(d) {
+  if (d.label === 'ExamCohort') return 6;
+  const base = window._rScale(d.degree);
+  return d.has_qid ? base : Math.max(base * 0.6, 1.5);
 }
 
-function panToNode(n, zoom) {
-  const panel = document.getElementById('graph-panel');
-  const W = panel.clientWidth;
-  const H = panel.clientHeight;
-  const scale = 2;
+function nodeFill(d) {
+  if (d.label === 'ExamCohort') return FILL.ExamCohort;
+  return d.has_qid ? FILL[d.label] : FILL[d.label + '_muted'];
+}
+
+/* ---------- DRAWING ---------- */
+function onTick() {
+  quadtree = d3.quadtree(nodes, d => d.x, d => d.y);
+  draw();
+}
+
+function draw() {
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.translate(transform.x, transform.y);
+  ctx.scale(transform.k, transform.k);
+
+  const visNodeTypes = activeNodeTypes;
+  const visEdgeTypes = activeEdgeTypes;
+
+  // Time axis
+  const xT = window._xTime;
+  const cY = window._cohortY;
+  ctx.strokeStyle = 'rgba(231,76,60,0.15)';
+  ctx.lineWidth = 1 / transform.k;
+  ctx.setLineDash([4 / transform.k, 2 / transform.k]);
+  ctx.beginPath();
+  ctx.moveTo(xT(window._yearMin) - 20, cY);
+  ctx.lineTo(xT(window._yearMax) + 20, cY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Decade ticks
+  ctx.fillStyle = 'rgba(231,76,60,0.35)';
+  ctx.font = `${Math.max(8, 10 / transform.k)}px sans-serif`;
+  ctx.textAlign = 'center';
+  for (let y = Math.ceil(window._yearMin / 10) * 10; y <= window._yearMax; y += 10) {
+    const x = xT(y);
+    ctx.beginPath();
+    ctx.moveTo(x, cY - 6); ctx.lineTo(x, cY + 6);
+    ctx.stroke();
+    ctx.fillText(y, x, cY + 18);
+  }
+
+  // Edges
+  ctx.globalAlpha = 0.12;
+  ctx.lineWidth = 0.5 / transform.k;
+  for (const l of links) {
+    if (!visEdgeTypes.has(l.type)) continue;
+    const s = l.source, t = l.target;
+    if (!visNodeTypes.has(s.label) || !visNodeTypes.has(t.label)) continue;
+    ctx.strokeStyle = EDGE_COLOR[l.type] || '#ccc';
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(t.x, t.y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Nodes
+  for (const n of nodes) {
+    if (!visNodeTypes.has(n.label)) continue;
+    const r = nodeRadius(n);
+
+    if (n.label === 'ExamCohort') {
+      // Diamond
+      const s = r;
+      ctx.fillStyle = FILL.ExamCohort;
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y - s);
+      ctx.lineTo(n.x + s, n.y);
+      ctx.lineTo(n.x, n.y + s);
+      ctx.lineTo(n.x - s, n.y);
+      ctx.closePath();
+      ctx.fill();
+      if (n === selectedNode) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2 / transform.k;
+        ctx.stroke();
+      }
+      // Year label always visible
+      ctx.fillStyle = '#e74c3c';
+      ctx.font = `bold ${Math.max(7, 9 / transform.k)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(n.year, n.x, n.y - r - 3);
+    } else {
+      // Circle
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = nodeFill(n);
+      ctx.fill();
+
+      // QID ring
+      if (n.has_qid) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5 / transform.k;
+        ctx.stroke();
+      }
+      // Selection highlight
+      if (n === selectedNode) {
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 2.5 / transform.k;
+        ctx.stroke();
+      }
+      // Hover highlight
+      if (n === hoveredNode && n !== selectedNode) {
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1.5 / transform.k;
+        ctx.stroke();
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+/* ---------- INTERACTION ---------- */
+function graphCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  return [(mx - transform.x) / transform.k, (my - transform.y) / transform.k];
+}
+
+function onMouseMove(e) {
+  if (dragNode) {
+    const [gx, gy] = graphCoords(e);
+    dragNode.fx = gx;
+    dragNode.fy = gy;
+    simulation.alphaTarget(0.1).restart();
+    return;
+  }
+  if (!quadtree) return;
+  const [gx, gy] = graphCoords(e);
+  const found = quadtree.find(gx, gy, 20 / transform.k);
+  const prev = hoveredNode;
+  hoveredNode = found && activeNodeTypes.has(found.label) ? found : null;
+  canvas.style.cursor = hoveredNode ? 'pointer' : 'default';
+  if (hoveredNode !== prev) draw();
+
+  // Tooltip
+  const tip = document.getElementById('tooltip');
+  if (hoveredNode) {
+    const d = hoveredNode;
+    const extra = d.label === 'ExamCohort' ? `${d.year} &middot; ${d.degree} members`
+      : `${d.label} &middot; ${d.degree} conn` + (d.has_qid ? ' &middot; QID' : '');
+    tip.innerHTML = `<strong>${escH(d.name)}</strong><br>${extra}`;
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top = (e.clientY - 20) + 'px';
+    tip.style.display = 'block';
+  } else {
+    tip.style.display = 'none';
+  }
+}
+
+function onMouseDown(e) {
+  if (!hoveredNode) return;
+  dragNode = hoveredNode;
+  dragNode.fx = dragNode.x;
+  dragNode.fy = dragNode.y;
+  simulation.alphaTarget(0.1).restart();
+  e.stopPropagation();
+}
+
+function onMouseUp(e) {
+  if (!dragNode) return;
+  simulation.alphaTarget(0);
+  if (dragNode.label === 'ExamCohort' && dragNode.year) {
+    dragNode.fx = window._xTime(dragNode.year);
+    dragNode.fy = window._cohortY;
+  } else {
+    dragNode.fx = null;
+    dragNode.fy = null;
+  }
+  dragNode = null;
+}
+
+function onCanvasClick(e) {
+  if (!quadtree) return;
+  const [gx, gy] = graphCoords(e);
+  const found = quadtree.find(gx, gy, 20 / transform.k);
+  if (found && activeNodeTypes.has(found.label)) {
+    selectNode(found);
+  }
+}
+
+function panToNode(n) {
+  const scale = 3;
   const tx = W / 2 - n.x * scale;
   const ty = H / 2 - n.y * scale;
-  svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  d3.select(canvas).transition().duration(750).call(window._zoom.transform, t);
 }
 
-function showTooltip(event, d) {
-  const tip = document.getElementById('tooltip');
-  tip.style.display = 'block';
-  tip.innerHTML = `<strong>${d.name}</strong><br>${d.label} &middot; ${d.degree} connections`;
-  tip.style.left = (event.pageX + 12) + 'px';
-  tip.style.top = (event.pageY - 20) + 'px';
-}
-function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
-
+/* ---------- SIDEBAR ---------- */
 function selectNode(d) {
-  selectedNodeId = d.id;
+  selectedNode = d;
+  draw();
 
-  // Highlight
-  window._graphState.nodeGroups.selectAll('circle').classed('highlighted', n => n.id === d.id);
-
-  // Build detail
   const dc = document.getElementById('detail-content');
   document.getElementById('detail-placeholder').style.display = 'none';
   dc.style.display = 'block';
 
-  let html = `<span class="type-badge ${d.label}">${d.label === 'EducationInstitution' ? 'Education' : d.label}</span>`;
-  html += `<h2>${d.name}</h2>`;
-  html += `<div class="qid-link"><a href="https://www.wikidata.org/wiki/${d.wikidata_qid}" target="_blank">${d.wikidata_qid}</a>`;
-  if (d.wikidata_confidence) html += ` <span style="color:var(--muted);font-size:11px">(${d.wikidata_confidence})</span>`;
-  html += `</div><dl>`;
+  let html = `<span class="type-badge ${d.label}">${BADGE_LABEL[d.label]}</span>`;
+  html += `<h2>${escH(d.name)}</h2>`;
+
+  if (d.wikidata_qid) {
+    html += `<div class="qid-link"><a href="https://www.wikidata.org/wiki/${d.wikidata_qid}" target="_blank">${d.wikidata_qid}</a>`;
+    if (d.wikidata_confidence) html += ` <span style="color:var(--muted);font-size:11px">(${d.wikidata_confidence})</span>`;
+    html += `</div>`;
+  }
+  html += `<dl>`;
 
   if (d.label === 'Person') {
-    if (d.wikidata_description) html += `<dt>Description</dt><dd>${esc(d.wikidata_description)}</dd>`;
+    if (d.wikidata_description) html += `<dt>Description</dt><dd>${escH(d.wikidata_description)}</dd>`;
     if (d.birth_date) html += `<dt>Birth Date</dt><dd>${d.birth_date}</dd>`;
     if (d.death_date) html += `<dt>Death Date</dt><dd>${d.death_date}</dd>`;
-    if (d.current_appointment) html += `<dt>Current Appointment</dt><dd>${esc(d.current_appointment)}</dd>`;
+    if (d.current_appointment) html += `<dt>Current Appointment</dt><dd>${escH(d.current_appointment)}</dd>`;
   } else if (d.label === 'Place') {
-    if (d.wikidata_label) html += `<dt>Wikidata Label</dt><dd>${esc(d.wikidata_label)}</dd>`;
-    if (d.alt_names && d.alt_names.length) html += `<dt>Alt Names</dt><dd>${d.alt_names.map(esc).join(', ')}</dd>`;
+    if (d.wikidata_label) html += `<dt>Wikidata Label</dt><dd>${escH(d.wikidata_label)}</dd>`;
+    if (d.alt_names && d.alt_names.length) html += `<dt>Alt Names</dt><dd>${d.alt_names.map(escH).join(', ')}</dd>`;
   } else if (d.label === 'EducationInstitution') {
-    if (d.institution_type) html += `<dt>Type</dt><dd>${esc(d.institution_type)}</dd>`;
-    if (d.wikidata_label) html += `<dt>Wikidata Label</dt><dd>${esc(d.wikidata_label)}</dd>`;
-    if (d.alt_names && d.alt_names.length) html += `<dt>Alt Names</dt><dd>${d.alt_names.map(esc).join(', ')}</dd>`;
+    if (d.institution_type) html += `<dt>Type</dt><dd>${escH(d.institution_type)}</dd>`;
+    if (d.wikidata_label) html += `<dt>Wikidata Label</dt><dd>${escH(d.wikidata_label)}</dd>`;
+    if (d.alt_names && d.alt_names.length) html += `<dt>Alt Names</dt><dd>${d.alt_names.map(escH).join(', ')}</dd>`;
+  } else if (d.label === 'ExamCohort') {
+    html += `<dt>Exam Year</dt><dd>${d.year}</dd>`;
+    if (d.service) html += `<dt>Service</dt><dd>${escH(d.service)}</dd>`;
+    html += `<dt>Members in View</dt><dd>${d.degree}</dd>`;
   }
   html += `</dl>`;
 
-  // Connected nodes (use simulation links which have object refs)
-  const conns = [];
-  window._graphState.links.forEach(e => {
-    const sid = e.source.id || e.source;
-    const tid = e.target.id || e.target;
-    if (sid === d.id) {
-      const tn = window._graphState.nodeMap.get(tid);
-      if (tn) conns.push({ node: tn, type: e.type, dir: 'out' });
-    }
-    if (tid === d.id) {
-      const sn = window._graphState.nodeMap.get(sid);
-      if (sn) conns.push({ node: sn, type: e.type, dir: 'in' });
-    }
-  });
-  conns.sort((a, b) => a.type.localeCompare(b.type) || a.node.name.localeCompare(b.node.name));
+  // Connections from precomputed adjacency
+  const adj = window._adj.get(d.id) || [];
+  const conns = adj.map(a => ({ node: nodeById.get(a.target), type: a.type }))
+    .filter(c => c.node)
+    .sort((a, b) => a.type.localeCompare(b.type) || a.node.name.localeCompare(b.node.name));
 
   if (conns.length) {
-    html += `<div class="connections-list"><h3>Connections (${conns.length})</h3>`;
-    conns.forEach(c => {
+    const MAX_SHOW = 50;
+    html += `<div class="connections-list"><h3>Connections (${conns.length}${conns.length > MAX_SHOW ? ', showing ' + MAX_SHOW : ''})</h3>`;
+    conns.slice(0, MAX_SHOW).forEach(c => {
+      const fill = c.node.has_qid ? FILL[c.node.label] : (FILL[c.node.label + '_muted'] || '#999');
       html += `<div class="conn-item" data-id="${c.node.id}">
-        <span class="conn-dot" style="background:${COLORS[c.node.label]}"></span>
-        <span>${esc(c.node.name)}</span>
+        <span class="conn-dot" style="background:${fill}"></span>
+        <span>${escH(c.node.name)}</span>
         <span class="conn-type">${c.type.replace(/_/g, ' ')}</span>
       </div>`;
     });
@@ -384,39 +562,33 @@ function selectNode(d) {
 
   dc.innerHTML = html;
 
-  // Make connections clickable
   dc.querySelectorAll('.conn-item').forEach(el => {
     el.addEventListener('click', () => {
-      const nid = el.dataset.id;
-      const target = window._graphState.nodes.find(n => n.id === nid);
-      if (target) {
-        selectNode(target);
-        panToNode(target, window._graphState.zoom);
-      }
+      const target = nodeById.get(el.dataset.id);
+      if (target) { selectNode(target); panToNode(target); }
     });
   });
 }
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+function escH(s) {
+  const el = document.createElement('span');
+  el.textContent = s;
+  return el.innerHTML;
 }
 
+/* ---------- TIMELINE ---------- */
 function initTimeline() {
   const container = document.getElementById('timeline-chart');
   const data = DATA.timeline;
   if (!data.length) return;
-
   const margin = { top: 8, right: 12, bottom: 28, left: 36 };
-  const W = container.clientWidth || 280;
-  const H = 120;
-  const w = W - margin.left - margin.right;
-  const h = H - margin.top - margin.bottom;
+  const TW = container.clientWidth || 280;
+  const TH = 120;
+  const w = TW - margin.left - margin.right;
+  const h = TH - margin.top - margin.bottom;
 
-  const svg = d3.select(container).append('svg').attr('width', W).attr('height', H);
+  const svg = d3.select(container).append('svg').attr('width', TW).attr('height', TH);
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
   const x = d3.scaleBand().domain(data.map(d => d.decade)).range([0, w]).padding(0.2);
   const y = d3.scaleLinear().domain([0, d3.max(data, d => d.count)]).nice().range([h, 0]);
 
@@ -427,7 +599,7 @@ function initTimeline() {
   g.selectAll('rect').data(data).enter().append('rect')
     .attr('x', d => x(d.decade)).attr('y', d => y(d.count))
     .attr('width', x.bandwidth()).attr('height', d => h - y(d.count))
-    .attr('fill', COLORS.Person).attr('rx', 2);
+    .attr('fill', '#4a90d9').attr('rx', 2);
 
   g.selectAll('.bar-label').data(data).enter().append('text')
     .attr('x', d => x(d.decade) + x.bandwidth() / 2).attr('y', d => y(d.count) - 3)
@@ -435,9 +607,10 @@ function initTimeline() {
     .text(d => d.count);
 }
 
+/* ---------- RANKINGS ---------- */
 function initRankings() {
-  renderRanking('top-places', DATA.top_places.slice(0, 15), COLORS.Place);
-  renderRanking('top-institutions', DATA.top_institutions.slice(0, 15), COLORS.EducationInstitution);
+  renderRanking('top-places', DATA.top_places.slice(0, 15), '#5cb85c');
+  renderRanking('top-institutions', DATA.top_institutions.slice(0, 15), '#f0ad4e');
 }
 
 function renderRanking(containerId, items, color) {
@@ -447,19 +620,15 @@ function renderRanking(containerId, items, color) {
     const pct = (item.count / maxCount * 100).toFixed(0);
     const div = document.createElement('div');
     div.className = 'rank-item';
-    div.dataset.id = item.id;
     div.innerHTML = `
       <span class="rank-num">${i + 1}.</span>
-      <span style="flex:1">${esc(item.name)}</span>
+      <span style="flex:1">${escH(item.name)}</span>
       <span style="color:var(--muted);font-size:11px;margin-right:4px">${item.count}</span>
       <div class="rank-bar" style="width:${pct}px;background:${color}"></div>
     `;
     div.addEventListener('click', () => {
-      const target = window._graphState?.nodes.find(n => n.id === item.id);
-      if (target) {
-        selectNode(target);
-        panToNode(target, window._graphState.zoom);
-      }
+      const target = nodeById.get(item.id);
+      if (target) { selectNode(target); panToNode(target); }
     });
     el.appendChild(div);
   });
